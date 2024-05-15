@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from pymongo import MongoClient
 import json
 from bson import ObjectId
@@ -17,6 +17,10 @@ app.json_encoder = JSONEncoder  # Use the custom JSON encoder
 # Connect to MongoDB
 client = MongoClient('mongodb://localhost:27017/')
 db = client['HoustonTaxiDB']
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/register_taxi', methods=['POST'])
 def register_taxi():
