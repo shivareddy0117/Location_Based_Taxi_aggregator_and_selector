@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taxi Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <style>
+        #map { height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([29.7604, -95.3698], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        var taxiMarker = L.marker([29.7604, -95.3698]).addTo(map);
+        var taxiRoute = L.polyline([], { color: 'green' }).addTo(map);  // Covered path in green
+        var fullRoute = L.polyline([], { color: 'red' }).addTo(map);  // Full route in red
+
+        var socket = io('http://' + document.domain + ':' + location.port);
+
+        socket.on('connect', function() {
+            console.log('Socket.IO connected');
+        });
+
+        socket.on('taxi_update', function(data) {
+            var newPos = [data.lat, data.lng];
+            taxiMarker.setLatLng(newPos);
+            taxiRoute.setLatLngs(data.covered_path);
+            fullRoute.setLatLngs(data.full_route);
+            console.log(`Taxi moved to ${newPos}`);  // Debug print
+        });
+
+        // Function to start a ride (for testing purposes)
+        function startRide() {
+            fetch('/start_ride', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ride_id: 'Ride001',
+                    user_id: 'User001',
+                    taxi_id: 'Taxi001',
+                    start_location: [29.7604, -95.3698],
+                    end_location: [29.7804, -95.3898]
+                })
+            }).then(response => response.json()).then(data => {
+                console.log(data);
+            });
+        }
+
+        // Start a ride when the page loads (for testing purposes)
+        window.onload = startRide;
+    </script>
+</body>
+</html>
