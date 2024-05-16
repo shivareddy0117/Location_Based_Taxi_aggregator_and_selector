@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 import requests
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 socketio = SocketIO(app)
 client = MongoClient('mongodb://localhost:27017/')
 db = client['HoustonTaxiDB']
@@ -58,7 +58,6 @@ def move_taxi(taxi_id, route, ride_id):
             'covered_path': covered_path,
             'full_route': route
         })
-        print(f"Taxi {taxi_id} moved to {current_position}")  # Debug print
         time.sleep(1)
 
 @app.route('/')
@@ -90,6 +89,8 @@ def start_ride():
     # Fetch route and start taxi movement simulation in a new thread
     route = get_route(start_location, end_location)
     if route:
+        # Emit the full route once
+        socketio.emit('route_init', {'full_route': route})
         taxi_thread = threading.Thread(target=move_taxi, args=(taxi_id, route, ride_id))
         taxi_thread.start()
     
