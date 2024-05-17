@@ -4,7 +4,7 @@ function submitRequest() {
     const taxiPreference = document.getElementById('taxiPreference').value;
 
     const requestData = {
-        user_id: "User001",  // You might want to dynamically generate or input this
+        user_id: "User001",  // This should be dynamically generated or retrieved
         location: {
             type: "Point",
             coordinates: [parseFloat(longitude), parseFloat(latitude)]

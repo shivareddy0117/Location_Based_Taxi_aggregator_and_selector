@@ -5,7 +5,7 @@ body {
     background-color: #f4f4f4;
 }
 
-h1 {
+h1, h2 {
     text-align: center;
 }
 
@@ -40,6 +40,21 @@ button {
 
 button:hover {
     background-color: #218838;
+}
+
+.nav-links {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.nav-links a {
+    margin: 0 10px;
+    text-decoration: none;
+    color: #007bff;
+}
+
+.nav-links a:hover {
+    text-decoration: underline;
 }
 
 #response {
