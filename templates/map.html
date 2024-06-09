@@ -4,10 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Taxi Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <style>
         #map { height: 100vh; }
+
+    
+          
+           
+            
+    
         .start-icon, .end-icon, .taxi-icon {
             display: flex;
             align-items: center;
@@ -32,138 +40,117 @@
 <body>
     <div id="map"></div>
     <script>
-        function initMap() {
-            var map = new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 29.7604, lng: -95.3698},
-                zoom: 13
-            });
+        var map = L.map('map').setView([29.7604, -95.3698], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
 
-            var startIcon = {
-                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<i class="fa-solid fa-map-pin" style="color:green;"></i>'),
-                scaledSize: new google.maps.Size(32, 32),
-                anchor: new google.maps.Point(16, 32)
-            };
+        // Create div icons for start, end, and taxi points
+        var startIcon = L.divIcon({
+            className: 'start-icon',
+            html: '<i class="fa-solid fa-map-pin"></i>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
-            var endIcon = {
-                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<i class="fa-solid fa-location-dot" style="color:red;"></i>'),
-                scaledSize: new google.maps.Size(32, 32),
-                anchor: new google.maps.Point(16, 32)
-            };
+        var endIcon = L.divIcon({
+            className: 'end-icon',
+            html: '<i class="fa-solid fa-location-dot"></i>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
-            var taxiIcon = {
-                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<i class="fa-solid fa-taxi" style="color:blue;"></i>'),
-                scaledSize: new google.maps.Size(32, 32),
-                anchor: new google.maps.Point(16, 32)
-            };
+        var taxiIcon = L.divIcon({
+            className: 'taxi-icon',
+            html: '<i class="fa-solid fa-taxi"></i>',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
-            var taxiMarker = new google.maps.Marker({
-                position: {lat: 29.7604, lng: -95.3698},
-                icon: taxiIcon,
-                map: map
-            });
+        var taxiMarker = L.marker([29.7604, -95.3698], { icon: taxiIcon }).addTo(map);
+        var plannedRoute = L.polyline([], { color: 'red' }).addTo(map); // Planned path in red
+        var coveredRoute = L.polyline([], { color: 'blue' }).addTo(map); // Covered path in blue
 
-            var plannedRoute = new google.maps.Polyline({
-                path: [],
-                geodesic: true,
-                strokeColor: 'red',
-                strokeOpacity: 1.0,
-                strokeWeight: 2,
-                map: map
-            });
+        var startMarker = null;
+        var endMarker = null;
 
-            var coveredRoute = new google.maps.Polyline({
-                path: [],
-                geodesic: true,
-                strokeColor: 'blue',
-                strokeOpacity: 1.0,
-                strokeWeight: 2,
-                map: map
-            });
+        var socket = io('http://' + document.domain + ':' + location.port);
 
-            var startMarker = null;
-            var endMarker = null;
+        socket.on('connect', function() {
+            console.log('Socket.IO connected');
+        });
 
-            var socket = io('http://' + document.domain + ':' + location.port);
+        // Draw initial route and markers
+        socket.on('route_init', function(data) {
+            console.log('Received initial route:', data.full_route); // Debug print
 
-            socket.on('connect', function() {
-                console.log('Socket.IO connected');
-            });
-
-            socket.on('route_init', function(data) {
-                console.log('Received initial route:', data.full_route); // Debug print
-
-                if (!startMarker) {
-                    startMarker = new google.maps.Marker({
-                        position: {lat: data.full_route[0][0], lng: data.full_route[0][1]},
-                        icon: startIcon,
-                        map: map,
-                        title: 'Start Point'
-                    });
-                }
-
-                if (!endMarker) {
-                    endMarker = new google.maps.Marker({
-                        position: {lat: data.full_route[data.full_route.length - 1][0], lng: data.full_route[data.full_route.length - 1][1]},
-                        icon: endIcon,
-                        map: map,
-                        title: 'Destination Point'
-                    });
-                }
-
-                plannedRoute.setPath(data.full_route.map(point => ({lat: point[0], lng: point[1]})));
-            });
-
-            function moveMarker(marker, newPos) {
-                var currentPos = marker.getPosition();
-                var latDiff = newPos.lat - currentPos.lat();
-                var lngDiff = newPos.lng - currentPos.lng();
-
-                var steps = 20;
-                var stepLat = latDiff / steps;
-                var stepLng = lngDiff / steps;
-
-                var step = 0;
-                function moveStep() {
-                    if (step < steps) {
-                        var newLat = currentPos.lat() + stepLat * step;
-                        var newLng = currentPos.lng() + stepLng * step;
-                        marker.setPosition({lat: newLat, lng: newLng});
-                        step++;
-                        setTimeout(moveStep, 50);
-                    }
-                }
-                moveStep();
+            if (!startMarker) {
+                startMarker = L.marker(data.full_route[0], { icon: startIcon }).addTo(map).bindPopup('Start Point');
             }
 
-            socket.on('taxi_update', function(data) {
-                console.log('Received data:', data); // Debug print
-                var newPos = {lat: data.lat, lng: data.lng};
-                moveMarker(taxiMarker, newPos);
-                coveredRoute.setPath(data.covered_path.map(point => ({lat: point[0], lng: point[1]})));
-                console.log(`Taxi moved to ${newPos}`);  // Debug print
-            });
-
-            function startRide() {
-                fetch('/start_ride', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        ride_id: 'Ride001',
-                        user_id: 'User001',
-                        taxi_id: 'Taxi001',
-                        start_location: [29.7604, -95.3698],
-                        end_location: [29.7804, -95.3898]
-                    })
-                }).then(response => response.json()).then(data => {
-                    console.log('Ride started:', data);
-                });
+            if (!endMarker) {
+                endMarker = L.marker(data.full_route[data.full_route.length - 1], { icon: endIcon }).addTo(map).bindPopup('Destination Point');
             }
 
-            window.onload = startRide;
+            plannedRoute.setLatLngs(data.full_route);
+        });
+
+        // Smoothly move the marker to the new position
+        function moveMarker(marker, newPos) {
+            var currentPos = marker.getLatLng();
+            var latDiff = newPos[0] - currentPos.lat;
+            var lngDiff = newPos[1] - currentPos.lng;
+
+            var steps = 20;
+            var stepLat = latDiff / steps;
+            var stepLng = lngDiff / steps;
+
+            var step = 0;
+            function moveStep() {
+                if (step < steps) {
+                    var newLat = currentPos.lat + stepLat * step;
+                    var newLng = currentPos.lng + stepLng * step;
+                    marker.setLatLng([newLat, newLng]);
+                    step++;
+                    setTimeout(moveStep, 50);
+                }
+            }
+            moveStep();
         }
+
+        // Update taxi position and covered path
+        socket.on('taxi_update', function(data) {
+            console.log('Received data:', data); // Debug print
+            var newPos = [data.lat, data.lng];
+            moveMarker(taxiMarker, newPos);
+            coveredRoute.setLatLngs(data.covered_path);
+            console.log(`Taxi moved to ${newPos}`);  // Debug print
+        });
+
+        // Function to start a ride (for testing purposes)
+        function startRide() {
+            fetch('/start_ride', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ride_id: 'Ride001',
+                    user_id: 'User001',
+                    taxi_id: 'Taxi001',
+                    end_location: [29.803102202461925, -95.42148111418881],
+                    start_location: [29.706516392518893, -95.32296999785234]
+                })
+            }).then(response => response.json()).then(data => {
+                console.log('Ride started:', data);
+            });
+        }
+
+        // Start a ride when the page loads (for testing purposes)
+        window.onload = startRide;
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
 </body>
 </html>

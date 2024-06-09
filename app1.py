@@ -12,7 +12,6 @@ client = MongoClient('mongodb://localhost:27017/')
 db = client['HoustonTaxiDB']
 taxis_collection = db['taxis']
 rides_collection = db['rides']
-
 # Insert initial data if not exists
 if taxis_collection.count_documents({}) == 0:
     initial_data = {
@@ -25,7 +24,6 @@ if taxis_collection.count_documents({}) == 0:
     }
     taxis_collection.insert_one(initial_data)
     print("Initial taxi data inserted.")
-
 def get_route(start, end):
     url = f"http://router.project-osrm.org/route/v1/driving/{start[1]},{start[0]};{end[1]},{end[0]}?overview=full&geometries=geojson"
     response = requests.get(url)
@@ -36,10 +34,8 @@ def get_route(start, end):
     else:
         print("Error fetching route from OSM")
         return []
-
 def move_taxi(taxi_id, route, ride_id):
     covered_path = []
-
     for current_position in route:
         timestamp = datetime.utcnow()
         taxis_collection.update_one(
@@ -63,7 +59,6 @@ def move_taxi(taxi_id, route, ride_id):
 @app.route('/')
 def index():
     return render_template('map.html')
-
 @app.route('/start_ride', methods=['POST'])
 def start_ride():
     data = request.json
@@ -93,17 +88,14 @@ def start_ride():
         socketio.emit('route_init', {'full_route': route})
         taxi_thread = threading.Thread(target=move_taxi, args=(taxi_id, route, ride_id))
         taxi_thread.start()
-    
-    return jsonify({'message': 'Ride started successfully'})
 
+    return jsonify({'message': 'Ride started successfully'})
 @socketio.on('connect')
 def test_connect():
     print('Client connected')
-
 @socketio.on('disconnect')
 def test_disconnect():
     print('Client disconnected')
-
 if __name__ == '__main__':
     print("Starting Flask app...")
     socketio.run(app, debug=True)
